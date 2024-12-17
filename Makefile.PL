@@ -3,15 +3,14 @@ use strict;
 
 use ExtUtils::MakeMaker;
 
-my $deps = {};
-
-$deps->{'Crypt::Random::Source::Strong::Win32'} = 0
-  if $^O =~ /mswin/i;
+my %deps = (
+  'Crypt::URandom' => '0.37',
+);
 
 my %args = (
     NAME              => 'Session::Token',
     VERSION_FROM      => 'lib/Session/Token.pm',
-    PREREQ_PM         => $deps,
+    PREREQ_PM         => \%deps,
     LIBS              => [''],
     DEFINE            => '',
     INC               => '-I.',
@@ -20,7 +19,7 @@ my %args = (
     dist => {
       PREOP => 'pod2text $(VERSION_FROM) > $(DISTVNAME)/README',
     },
-    MIN_PERL_VERSION  => '5.8.0',
+    MIN_PERL_VERSION  => '5.6.0',
 );
 
 

@@ -3,8 +3,8 @@ package Session::Token;
 use strict;
 
 use Carp qw/croak/;
+use Crypt::URandom qw/urandom/;
 use POSIX qw/ceil/;
-
 
 our $VERSION = '1.503';
 
@@ -14,14 +14,6 @@ XSLoader::load('Session::Token', $VERSION);
 
 my $default_alphabet = join('', ('0'..'9', 'a'..'z', 'A'..'Z',));
 my $default_entropy = 128;
-
-my $is_windows;
-
-if ($^O =~ /mswin/i) {
-  require Crypt::Random::Source::Strong::Win32;
-  $is_windows = 1;
-}
-
 
 sub new {
   my ($class, @args) = @_;
@@ -43,25 +35,8 @@ sub new {
   }
 
   if (!defined $seed) {
-    if ($is_windows) {
-      my $windows_rng_source = Crypt::Random::Source::Strong::Win32->new;
-      $seed = $windows_rng_source->get(1024);
-      die "Win32 RNG source didn't provide 1024 bytes" unless length($seed) == 1024;
-    } else {
-      my ($fh, $err1, $err2);
-
-      open($fh, '<:raw', '/dev/urandom') || ($err1 = $!);
-      open($fh, '<:raw', '/dev/arandom') || ($err2 = $!)
-        unless defined $fh;
-
-      if (!defined $fh) {
-        croak "unable to open /dev/urandom ($err1) or /dev/arandom ($err2)";
-      }
-
-      sysread($fh, $seed, 1024) == 1024 || croak "unable to read from random device: $!";
-    }
+    $seed = urandom(1024);
   }
-
 
   ## Init alphabet
 
@@ -140,7 +115,7 @@ Session::Token - Secure, efficient, simple random session token generation
 
 This module provides a secure, efficient, and simple interface for creating session tokens, password reset codes, temporary passwords, random identifiers, and anything else you can think of.
 
-When a Session::Token object is created, 1024 bytes are read from C</dev/urandom> (Linux, Solaris, most BSDs), C</dev/arandom> (some older BSDs), or L<Crypt::Random::Source::Strong::Win32> (Windows). These bytes are used to seed the L<ISAAC-32|http://www.burtleburtle.net/bob/rand/isaacafa.html> pseudo random number generator.
+When a Session::Token object is created, 1024 bytes are read from L<Crypt::URandom>. These bytes are used to seed the L<ISAAC-32|http://www.burtleburtle.net/bob/rand/isaacafa.html> pseudo random number generator.
 
 Once a generator is created, you can repeatedly call the C<get> method on the generator object and it will return a new token each time.
 
@@ -419,13 +394,6 @@ Should check for biased alphabets and print warnings.
 Would be cool if it could detect forks and warn or re-seed in the child process (without incurring C<getpid> overhead).
 
 There is currently no way to extract the seed from a Session::Token object. Note when implementing this: The saved seed must either store the current state of the ISAAC round as well as the 1024 byte C<randsl> array or else do some kind of minimum fast forwarding in order to protect against a partially duplicated output-stream bug.
-
-Doesn't work on perl 5.6 and below due to the use of C<:raw> (thanks CPAN testers). It could probably use C<binmode> instead, but meh.
-
-On windows we use L<Crypt::Random::Source::Strong::Win32> which has a big dependency tree. We should instead use a slimmer module like L<Crypt::Random::Seed>.
-
-
-
 
 =head1 SEE ALSO
 
